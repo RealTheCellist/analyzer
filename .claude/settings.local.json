@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(pip install setuptools 2>&1)",
+      "PowerShell(python -m pip install setuptools --upgrade 2>&1)",
+      "PowerShell(python -c \"import pkg_resources; print\\('OK'\\)\")",
+      "PowerShell(python --version)",
+      "PowerShell(python -m pip show setuptools 2>&1)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import feedparser; help\\(feedparser.FeedParserDict\\)\")",
+      "Bash(python *)"
+    ]
+  }
+}
