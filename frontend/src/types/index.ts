@@ -43,6 +43,22 @@ export interface NewsItem {
   source: string
 }
 
+export type PostCategory = '버그제보' | '기능제안' | '기타'
+
+export interface Post {
+  id: number
+  category: PostCategory
+  title: string
+  content: string
+  created_at: string
+}
+
+export interface PostListResponse {
+  total: number
+  page: number
+  posts: Post[]
+}
+
 export interface AnalysisResult {
   ticker: string
   name: string

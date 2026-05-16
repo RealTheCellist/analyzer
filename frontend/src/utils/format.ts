@@ -16,5 +16,6 @@ export function formatMarketCap(cap: number, market: Market): string {
   }
   const b = cap / 1e9
   if (b >= 1000) return `$${(b / 1000).toFixed(1)}T`
-  return `$${b.toFixed(1)}B`
+  if (b >= 1) return `$${b.toFixed(1)}B`
+  return `$${(cap / 1e6).toFixed(0)}M`
 }

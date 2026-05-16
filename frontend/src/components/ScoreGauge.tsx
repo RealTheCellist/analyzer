@@ -11,7 +11,7 @@ export default function ScoreGauge({ score, verdict }: Props) {
   const colorMap: Record<string, string> = {
     STRONG_BUY: '#10b981',
     QUALIFIED: '#22c55e',
-    WATCHLIST: '#eab308',
+    WATCHLIST: '#3b82f6',
     DISQUALIFIED: '#ef4444',
   }
   const color = colorMap[verdict] ?? '#ef4444'
@@ -39,7 +39,7 @@ export default function ScoreGauge({ score, verdict }: Props) {
             : verdict === 'QUALIFIED'
             ? 'bg-green-500/20 text-green-400'
             : verdict === 'WATCHLIST'
-            ? 'bg-yellow-500/20 text-yellow-400'
+            ? 'bg-blue-500/20 text-blue-400'
             : 'bg-red-500/20 text-red-400'
         }`}
       >

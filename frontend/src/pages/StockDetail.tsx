@@ -1,8 +1,9 @@
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import { Market } from '../types'
-import { runAnalysis } from '../api/stockApi'
+import { Market, SearchResult } from '../types'
+import { runAnalysis, searchStocks } from '../api/stockApi'
 import { formatPrice, formatMarketCap } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import VerdictBadge from '../components/VerdictBadge'
@@ -11,6 +12,65 @@ import RadarChart from '../components/RadarChart'
 import ScoreBreakdown from '../components/ScoreBreakdown'
 import NewsPanel from '../components/NewsPanel'
 import SentimentBubble from '../components/SentimentBubble'
+
+function QuickSearch() {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const { data: results } = useQuery({
+    queryKey: ['search', query, 'ALL'],
+    queryFn: () => searchStocks(query, 'ALL'),
+    enabled: query.length > 0,
+    staleTime: 30_000,
+  })
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const handleSelect = (item: SearchResult) => {
+    setQuery('')
+    setOpen(false)
+    navigate(`/stock/${item.market}/${item.ticker}`)
+  }
+
+  return (
+    <div ref={ref} className="relative w-56">
+      <input
+        type="text"
+        placeholder="다른 종목 검색..."
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500 placeholder-gray-500"
+      />
+      {open && results && results.length > 0 && (
+        <div className="absolute right-0 top-full mt-1 w-72 rounded-xl border border-gray-700 overflow-hidden shadow-xl z-50">
+          {results.slice(0, 8).map((item) => (
+            <button
+              key={`${item.market}-${item.ticker}`}
+              onMouseDown={() => handleSelect(item)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900 hover:bg-gray-800 border-b border-gray-800 last:border-0 text-left transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 shrink-0">{item.market}</span>
+                <span className="text-white text-sm truncate">{item.name}</span>
+                <span className="text-gray-500 text-xs shrink-0">{item.ticker}</span>
+              </div>
+              <span className="text-blue-400 font-mono text-xs shrink-0 ml-2">{formatPrice(item.current_price, item.market)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SignalBadge({ signal }: { signal: string }) {
   const cfg = {
@@ -100,13 +160,16 @@ export default function StockDetail() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
-      {/* 뒤로가기 */}
-      <button
-        className="self-start text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
-        onClick={() => navigate('/')}
-      >
-        ← 홈으로
-      </button>
+      {/* 뒤로가기 + 빠른 검색 */}
+      <div className="flex items-center justify-between">
+        <button
+          className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
+          onClick={() => navigate('/')}
+        >
+          ← 홈으로
+        </button>
+        <QuickSearch />
+      </div>
 
       {/* 종목 헤더 */}
       <div className="flex flex-wrap items-center gap-3">
@@ -146,7 +209,8 @@ export default function StockDetail() {
             <span className={`text-xl font-bold ${
               data.recommendation === '강력매수' ? 'text-emerald-400' :
               data.recommendation === '매수' ? 'text-green-400' :
-              data.recommendation === '분할매수' ? 'text-blue-400' : 'text-gray-400'
+              data.recommendation === '분할매수' ? 'text-blue-400' :
+              data.recommendation === '관망' ? 'text-gray-400' : 'text-gray-400'
             }`}>
               {data.recommendation}
             </span>
@@ -232,6 +296,11 @@ export default function StockDetail() {
           <NewsPanel news={data.news} sentiment={breakdown.sentiment} />
         </div>
       </div>
+
+      {/* 면책 문구 */}
+      <p className="text-center text-sm text-gray-600 leading-relaxed border-t border-gray-800 pt-4">
+        본 분석 결과는 투자 참고용 정보이며, 투자 권유나 자문이 아닙니다. 분석 결과에 따른 투자 손익에 대해 어떠한 법적 책임도 지지 않습니다.
+      </p>
     </div>
   )
 }

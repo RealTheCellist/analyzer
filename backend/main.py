@@ -2,7 +2,7 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import stocks, analysis, news
+from routers import stocks, analysis, news, board
 from services.data_fetcher import init_stock_cache
 from dotenv import load_dotenv
 
@@ -29,3 +29,4 @@ app.add_middleware(
 app.include_router(stocks.router, prefix="/api/stocks")
 app.include_router(analysis.router, prefix="/api/analysis")
 app.include_router(news.router, prefix="/api/news")
+app.include_router(board.router, prefix="/api/board")

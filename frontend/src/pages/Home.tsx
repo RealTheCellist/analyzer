@@ -66,12 +66,20 @@ export default function Home() {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-2">주식 투자 적합도 분석기</h1>
           <p className="text-gray-400">국내·미국 주식을 0~100점으로 분석합니다</p>
-          <button
-            className="mt-3 text-sm px-4 py-1.5 rounded-full border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
-            onClick={() => navigate('/compare')}
-          >
-            ⇄ 종목 비교 분석
-          </button>
+          <div className="mt-3 flex gap-2 justify-center">
+            <button
+              className="text-sm px-4 py-1.5 rounded-full border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
+              onClick={() => navigate('/compare')}
+            >
+              ⇄ 종목 비교 분석
+            </button>
+            <button
+              className="text-sm px-4 py-1.5 rounded-full border border-gray-600 text-gray-400 hover:bg-gray-800 transition-colors"
+              onClick={() => navigate('/board')}
+            >
+              ✉ 버그제보 / 기능제안
+            </button>
+          </div>
         </div>
 
         {/* 검색창 */}
@@ -124,6 +132,12 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* 면책 문구 */}
+      <p className="mt-12 text-center text-sm text-gray-600 max-w-lg leading-relaxed">
+        본 서비스는 투자 참고용 정보를 제공하며, 투자 권유나 자문이 아닙니다.<br />
+        분석 결과에 따른 투자 손익에 대해 어떠한 법적 책임도 지지 않습니다.
+      </p>
     </div>
   )
 }

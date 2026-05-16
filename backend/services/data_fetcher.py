@@ -18,6 +18,7 @@ async def init_stock_cache():
         )
         global _kr_listing_cache, _kr_etf_codes
         _kr_listing_cache = pd.concat([stock_df, etf_df])
+        _kr_listing_cache = _kr_listing_cache[~_kr_listing_cache.index.duplicated(keep='last')]
         _kr_etf_codes = set(etf_df.index.tolist())
         logger.info("[cache] KR 주식 %d개 + ETF %d개 로드 완료", len(stock_df), len(etf_df))
     except Exception:
@@ -28,6 +29,8 @@ def _fetch_kr_listing() -> pd.DataFrame:
     import FinanceDataReader as fdr
     df = fdr.StockListing('KRX')
     df = df[['Code', 'Name', 'Market', 'Close', 'Volume', 'Marcap']].copy()
+    if 'Market' in df.columns:
+        df = df[~df['Market'].str.upper().str.contains('ETF', na=False)]
     df['Code'] = df['Code'].astype(str).str.zfill(6)
     df = df.set_index('Code')
     return df
@@ -116,8 +119,11 @@ def search_stocks(query: str, market: str) -> list[dict]:
             results = []
             for q in search.quotes:
                 symbol = q.get('symbol', '')
+                quote_type = (q.get('quoteType') or '').upper()
                 name = q.get('longname') or q.get('shortname') or symbol
-                if symbol:
+                if (symbol
+                        and quote_type in ('EQUITY', 'ETF')
+                        and not symbol.endswith(('.KS', '.KQ', '.KN'))):
                     results.append({"ticker": symbol, "name": name, "market": "US"})
             return results[:10]
         except Exception:

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { SearchResult, AnalysisResult, Market, SearchMarket } from '../types'
+import { SearchResult, AnalysisResult, Market, SearchMarket, Post, PostListResponse, PostCategory } from '../types'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -20,5 +20,20 @@ export const searchStocks = async (query: string, market: SearchMarket): Promise
 
 export const runAnalysis = async (ticker: string, market: Market): Promise<AnalysisResult> => {
   const { data } = await api.post('/analysis/run', { ticker, market })
+  return data
+}
+
+export const fetchPosts = async (page = 1): Promise<PostListResponse> => {
+  const { data } = await api.get('/board/posts', { params: { page, limit: 20 } })
+  return data
+}
+
+export const fetchPost = async (id: number): Promise<Post> => {
+  const { data } = await api.get(`/board/posts/${id}`)
+  return data
+}
+
+export const createPost = async (body: { category: PostCategory; title: string; content: string }): Promise<Post> => {
+  const { data } = await api.post('/board/posts', body)
   return data
 }

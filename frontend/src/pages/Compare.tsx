@@ -91,27 +91,33 @@ function CompareRow({
   left,
   right,
   format = (v: number) => v.toFixed(2),
+  formatLeft,
+  formatRight,
   higherIsBetter = true,
 }: {
   label: string
   left: number | null
   right: number | null
   format?: (v: number) => string
+  formatLeft?: (v: number) => string
+  formatRight?: (v: number) => string
   higherIsBetter?: boolean
 }) {
   const leftWins = left != null && right != null && (higherIsBetter ? left > right : left < right)
   const rightWins = left != null && right != null && (higherIsBetter ? right > left : right < left)
+  const fmtLeft = formatLeft ?? format
+  const fmtRight = formatRight ?? format
 
   return (
     <div className="grid grid-cols-3 items-center py-2.5 border-b border-gray-800 last:border-0">
       <span className={`text-right font-mono text-sm pr-4 ${leftWins ? 'text-green-400 font-bold' : 'text-gray-300'}`}>
-        {left != null ? format(left) : '-'}
+        {left != null ? fmtLeft(left) : '-'}
         {leftWins && <span className="ml-1 text-green-400">◀</span>}
       </span>
       <span className="text-center text-xs text-gray-500">{label}</span>
       <span className={`text-left font-mono text-sm pl-4 ${rightWins ? 'text-green-400 font-bold' : 'text-gray-300'}`}>
         {rightWins && <span className="mr-1 text-green-400">▶</span>}
-        {right != null ? format(right) : '-'}
+        {right != null ? fmtRight(right) : '-'}
       </span>
     </div>
   )
@@ -231,9 +237,8 @@ export default function Compare() {
                     left={lInd?.value ?? null}
                     right={rInd?.value ?? null}
                     higherIsBetter={!lowerIsBetter.has(name)}
-                    format={isAum
-                      ? (v: number) => formatMarketCap(v, lInd != null ? leftMarket : rightMarket)
-                      : undefined}
+                    formatLeft={isAum ? (v: number) => formatMarketCap(v, leftMarket) : undefined}
+                    formatRight={isAum ? (v: number) => formatMarketCap(v, rightMarket) : undefined}
                   />
                 )
               })

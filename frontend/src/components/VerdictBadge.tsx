@@ -20,7 +20,7 @@ export default function VerdictBadge({ verdict }: Props) {
     },
     DISQUALIFIED: {
       className: 'bg-gray-700 text-gray-400 border border-gray-600',
-      label: '◎ 관망',
+      label: '✕ 투자부적격',
     },
   }
 

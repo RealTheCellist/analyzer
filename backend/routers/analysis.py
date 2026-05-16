@@ -82,7 +82,10 @@ async def run_analysis(req: AnalysisRequest):
     fundamental, technical, news = await asyncio.gather(
         asyncio.to_thread(score_fn, stock_data),
         asyncio.to_thread(calculate_technical_score, stock_data.get("history")),
-        asyncio.to_thread(collect_news_and_score, ticker, stock_data["name"], market),
+        asyncio.to_thread(
+            collect_news_and_score, ticker, stock_data["name"], market,
+            stock_data.get("quote_type", "EQUITY"), stock_data.get("sector", ""),
+        ),
     )
     ai = await get_ai_judgment(stock_data, fundamental, technical, news)
 

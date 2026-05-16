@@ -11,6 +11,8 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 async def get_ai_judgment(
     stock_data: dict, fundamental: dict, technical: dict, news: dict
 ) -> dict:
+    if not GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY가 설정되지 않았습니다. Gemini AI 분석이 Ollama로 폴백됩니다.")
     indicators_summary = ", ".join(
         f"{i['name']}={i['value']} ({i['benchmark']})"
         for i in fundamental['indicators'] if i['value'] is not None
@@ -111,7 +113,7 @@ async def _ollama_fallback(prompt: str) -> dict:
                 "weaknesses": parsed.get("weaknesses", []),
             }
     except Exception:
-        logger.exception("Ollama 폴백도 실패")
+        logger.exception("Ollama 폴백도 실패 — 기본값 15.0 반환")
         return {
             "score": 15.0,
             "reasoning": "AI 분석 서버에 연결할 수 없습니다.",

@@ -74,51 +74,213 @@ def _extract_keywords(news_list: list[dict]) -> list[dict]:
     return keywords
 
 
-def collect_news_and_score(ticker: str, name: str, market: str) -> dict:
+_DEDUP_STOP = {
+    "있는", "없는", "하는", "위한", "통해", "따른", "및", "이후", "관련", "대한",
+    "the", "and", "for", "that", "with", "this", "from", "are", "was", "its",
+    "에서", "으로", "에도", "한다", "된다", "이다", "에게", "까지", "부터",
+    "속보", "단독", "종합", "업데이트", "breaking", "exclusive", "update",
+}
+
+
+def _title_tokens(title: str) -> frozenset[str]:
+    """제목에서 불용어를 제거한 전체 단어 집합."""
+    words = re.findall(r"[가-힣]{2,}|[a-zA-Z0-9]{2,}", title)
+    return frozenset(w.lower() for w in words if w.lower() not in _DEDUP_STOP)
+
+
+def _entity_tokens(title: str) -> frozenset[str]:
+    """고유명사·숫자 중심 핵심 토큰 (대소문자 유지, 숫자 포함)."""
+    # 영문 대문자 시작 단어, 한글 고유명사(2자 이상), 숫자+단위
+    entities = re.findall(r"[A-Z][A-Za-z0-9]+|[가-힣]{2,}|[0-9]+[%·조억만원$]?", title)
+    stop_en = {"The", "For", "With", "From", "This", "That", "After", "As"}
+    return frozenset(e for e in entities if e not in stop_en and len(e) >= 2)
+
+
+def _is_duplicate(a: str, b: str) -> bool:
+    """두 제목이 내용상 중복인지 판별한다."""
+    ta, tb = _title_tokens(a), _title_tokens(b)
+    ea, eb = _entity_tokens(a), _entity_tokens(b)
+
+    # 1) 전체 단어 Jaccard 0.4 이상
+    union_all = len(ta | tb)
+    if union_all > 0 and len(ta & tb) / union_all >= 0.4:
+        return True
+
+    # 2) 핵심 엔티티 2개 이상 공유 (단, 각 제목에 엔티티가 2개 이상 있을 때만)
+    if len(ea) >= 2 and len(eb) >= 2 and len(ea & eb) >= 2:
+        return True
+
+    return False
+
+
+def _dedup_news(news_list: list[dict]) -> list[dict]:
+    """내용상 중복 기사를 제거한다."""
+    kept: list[dict] = []
+    for item in news_list:
+        title = item["title"]
+        if not any(_is_duplicate(title, k["title"]) for k in kept):
+            kept.append(item)
+    return kept
+
+
+_ETF_SECTOR_QUERY_KR: dict[str, str] = {
+    "반도체": "반도체 시장",
+    "2차전지": "2차전지 배터리",
+    "전기차": "전기차 EV",
+    "바이오": "바이오 헬스케어",
+    "IT": "IT 기술주",
+    "금융": "금융 은행",
+    "에너지": "에너지 원자재",
+    "부동산": "부동산 리츠",
+    "미국": "미국 증시",
+    "중국": "중국 증시",
+    "인도": "인도 증시",
+    "채권": "채권 금리",
+}
+
+_ETF_SECTOR_QUERY_US: dict[str, str] = {
+    "Technology": "technology sector stocks",
+    "Healthcare": "healthcare sector stocks",
+    "Financials": "financial sector stocks",
+    "Energy": "energy sector stocks",
+    "Consumer": "consumer sector stocks",
+    "Real Estate": "real estate REIT",
+    "Industrials": "industrials sector",
+    "Materials": "materials commodities",
+    "Utilities": "utilities sector",
+    "Communication": "communication services",
+    "Bond": "bond market interest rate",
+    "Dividend": "dividend stocks",
+}
+
+
+def _etf_search_query(name: str, sector: str, market: str) -> str:
+    """ETF 이름/섹터에서 검색용 키워드를 추론한다."""
+    if market == "KR":
+        for keyword, query in _ETF_SECTOR_QUERY_KR.items():
+            if keyword in name or keyword in sector:
+                return query
+        # 이름에서 브랜드(TIGER/KODEX 등) 제거 후 핵심 단어 추출
+        core = re.sub(r'(TIGER|KODEX|KINDEX|ARIRANG|HANARO|ACE)\s*', '', name, flags=re.IGNORECASE).strip()
+        return f"{core} 시장" if core else "국내 증시"
+    else:
+        for keyword, query in _ETF_SECTOR_QUERY_US.items():
+            if keyword.lower() in sector.lower() or keyword.lower() in name.lower():
+                return query
+        # sector 값이 있으면 그대로 사용
+        if sector:
+            return f"{sector} sector market"
+        return "stock market ETF"
+
+
+def _filter_recent(news_list: list[dict], days: int = 7) -> list[dict]:
+    """days일 이내 뉴스만 반환한다."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    result = []
+    for n in news_list:
+        try:
+            pub = datetime.fromisoformat(n["published"].replace("Z", "+00:00"))
+            if pub.tzinfo is None:
+                pub = pub.replace(tzinfo=timezone.utc)
+            if pub >= cutoff:
+                result.append(n)
+        except Exception:
+            result.append(n)
+    return result
+
+
+def collect_news_and_score(ticker: str, name: str, market: str,
+                           quote_type: str = "EQUITY", sector: str = "") -> dict:
     news_list = []
+    is_etf = quote_type == "ETF"
 
     if market == "KR":
-        try:
-            feed = feedparser.parse(f"https://finance.naver.com/item/rss.naver?code={ticker}")
-            for entry in feed.entries[:15]:
-                news_list.append({
-                    "title": entry.get("title", ""),
-                    "link": entry.get("link", ""),
-                    "published": _parse_published(entry),
-                    "source": (entry.get("source") or {}).get("title", "네이버금융"),
-                })
-        except Exception:
-            logger.exception("네이버금융 RSS 수집 실패: %s", ticker)
-
-        # 보조: 구글 뉴스 RSS (종목명 검색)
-        if not news_list:
+        if is_etf:
+            # ETF는 종목 RSS 대신 관련 분야 구글 뉴스 검색
             try:
                 import urllib.parse
-                encoded = urllib.parse.quote(name)
-                feed2 = feedparser.parse(f"https://news.google.com/rss/search?q={encoded}+주식&hl=ko&gl=KR&ceid=KR:ko")
-                for entry in feed2.entries[:10]:
-                    title = entry.get("title", "")
+                query = _etf_search_query(name, sector, "KR")
+                encoded = urllib.parse.quote(query)
+                feed = feedparser.parse(
+                    f"https://news.google.com/rss/search?q={encoded}&hl=ko&gl=KR&ceid=KR:ko"
+                )
+                for entry in feed.entries[:15]:
                     news_list.append({
-                        "title": title,
+                        "title": entry.get("title", ""),
                         "link": entry.get("link", ""),
                         "published": _parse_published(entry),
                         "source": "Google뉴스",
                     })
             except Exception:
-                logger.exception("Google 뉴스 RSS 수집 실패: %s", name)
+                logger.exception("KR ETF Google 뉴스 수집 실패: %s", name)
+        else:
+            try:
+                feed = feedparser.parse(f"https://finance.naver.com/item/rss.naver?code={ticker}")
+                for entry in feed.entries[:15]:
+                    news_list.append({
+                        "title": entry.get("title", ""),
+                        "link": entry.get("link", ""),
+                        "published": _parse_published(entry),
+                        "source": (entry.get("source") or {}).get("title", "네이버금융"),
+                    })
+            except Exception:
+                logger.exception("네이버금융 RSS 수집 실패: %s", ticker)
+
+            # 보조: 구글 뉴스 RSS (종목명 검색)
+            if not news_list:
+                try:
+                    import urllib.parse
+                    encoded = urllib.parse.quote(name)
+                    feed2 = feedparser.parse(
+                        f"https://news.google.com/rss/search?q={encoded}+주식&hl=ko&gl=KR&ceid=KR:ko"
+                    )
+                    for entry in feed2.entries[:10]:
+                        news_list.append({
+                            "title": entry.get("title", ""),
+                            "link": entry.get("link", ""),
+                            "published": _parse_published(entry),
+                            "source": "Google뉴스",
+                        })
+                except Exception:
+                    logger.exception("Google 뉴스 RSS 수집 실패: %s", name)
 
     else:
-        try:
-            feed = feedparser.parse(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US")
-            for entry in feed.entries[:15]:
-                news_list.append({
-                    "title": entry.get("title", ""),
-                    "link": entry.get("link", ""),
-                    "published": _parse_published(entry),
-                    "source": (entry.get("source") or {}).get("title", "Yahoo Finance"),
-                })
-        except Exception:
-            logger.exception("Yahoo Finance RSS 수집 실패: %s", ticker)
+        if is_etf:
+            # ETF는 섹터/카테고리 키워드로 구글 뉴스 검색
+            try:
+                import urllib.parse
+                query = _etf_search_query(name, sector, "US")
+                encoded = urllib.parse.quote(query)
+                feed = feedparser.parse(
+                    f"https://news.google.com/rss/search?q={encoded}&hl=en&gl=US&ceid=US:en"
+                )
+                for entry in feed.entries[:15]:
+                    news_list.append({
+                        "title": entry.get("title", ""),
+                        "link": entry.get("link", ""),
+                        "published": _parse_published(entry),
+                        "source": "Google News",
+                    })
+            except Exception:
+                logger.exception("US ETF Google 뉴스 수집 실패: %s", name)
+        else:
+            try:
+                feed = feedparser.parse(
+                    f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
+                )
+                for entry in feed.entries[:15]:
+                    news_list.append({
+                        "title": entry.get("title", ""),
+                        "link": entry.get("link", ""),
+                        "published": _parse_published(entry),
+                        "source": (entry.get("source") or {}).get("title", "Yahoo Finance"),
+                    })
+            except Exception:
+                logger.exception("Yahoo Finance RSS 수집 실패: %s", ticker)
+
+    # 7일 이내 뉴스만 유지 후 내용 중복 제거
+    news_list = _filter_recent(news_list, days=7)
+    news_list = _dedup_news(news_list)
 
     # 감성 분류
     sentiments = [_classify_sentiment(n["title"]) for n in news_list]
