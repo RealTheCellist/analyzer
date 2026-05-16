@@ -1,4 +1,8 @@
+// API 응답에서 오는 market 값 (KR/US만 가능)
 export type Market = 'KR' | 'US'
+// 검색 파라미터용 (ALL 포함)
+export type SearchMarket = 'KR' | 'US' | 'ALL'
+export type QuoteType = 'EQUITY' | 'ETF'
 export type Verdict = 'STRONG_BUY' | 'QUALIFIED' | 'WATCHLIST' | 'DISQUALIFIED'
 export type Signal = 'BUY' | 'SELL' | 'NEUTRAL'
 export type Recommendation = '강력매수' | '매수' | '분할매수' | '관망'
@@ -43,6 +47,7 @@ export interface AnalysisResult {
   ticker: string
   name: string
   market: Market
+  quote_type: QuoteType
   current_price: number
   market_cap: number
   analyzed_at: string

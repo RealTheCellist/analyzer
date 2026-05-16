@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Market, AnalysisResult, SearchResult } from '../types'
+import { AnalysisResult, SearchResult } from '../types'
 import { searchStocks, runAnalysis } from '../api/stockApi'
-import { formatPrice } from '../utils/format'
+import { formatPrice, formatMarketCap } from '../utils/format'
 import LoadingSpinner from '../components/LoadingSpinner'
 import VerdictBadge from '../components/VerdictBadge'
 import ScoreGauge from '../components/ScoreGauge'
@@ -20,11 +20,10 @@ function SearchSlot({
   onClear: () => void
 }) {
   const [query, setQuery] = useState('')
-  const [market, setMarket] = useState<Market>('US')
 
   const { data: results, isFetching } = useQuery({
-    queryKey: ['search', query, market],
-    queryFn: () => searchStocks(query, market),
+    queryKey: ['search', query, 'ALL'],
+    queryFn: () => searchStocks(query, 'ALL'),
     enabled: query.length > 0,
     staleTime: 30_000,
   })
@@ -48,27 +47,17 @@ function SearchSlot({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <select
-              value={market}
-              onChange={(e) => setMarket(e.target.value as Market)}
-              className="bg-gray-800 text-gray-300 text-sm rounded-lg px-3 py-2 border border-gray-700"
-            >
-              <option value="KR">KR</option>
-              <option value="US">US</option>
-            </select>
-            <input
-              type="text"
-              placeholder="종목명 또는 티커 검색..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="종목명 또는 티커 검색..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+          />
           {isFetching && <p className="text-xs text-gray-500 px-1">검색 중...</p>}
           {results && results.length > 0 && (
             <div className="rounded-xl border border-gray-700 overflow-hidden">
-              {results.slice(0, 5).map((item) => (
+              {results.slice(0, 8).map((item) => (
                 <button
                   key={`${item.market}-${item.ticker}`}
                   className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-900 hover:bg-gray-800 border-b border-gray-800 last:border-0 text-left transition-colors"
@@ -135,14 +124,14 @@ export default function Compare() {
 
   const leftQuery = useQuery<AnalysisResult>({
     queryKey: ['analysis', leftStock?.market, leftStock?.ticker],
-    queryFn: () => runAnalysis(leftStock!.ticker, leftStock!.market as Market),
+    queryFn: () => runAnalysis(leftStock!.ticker, leftStock!.market),
     enabled: !!leftStock,
     staleTime: 5 * 60_000,
   })
 
   const rightQuery = useQuery<AnalysisResult>({
     queryKey: ['analysis', rightStock?.market, rightStock?.ticker],
-    queryFn: () => runAnalysis(rightStock!.ticker, rightStock!.market as Market),
+    queryFn: () => runAnalysis(rightStock!.ticker, rightStock!.market),
     enabled: !!rightStock,
     staleTime: 5 * 60_000,
   })
@@ -220,23 +209,35 @@ export default function Compare() {
             <CompareRow label="AI (/30)" left={L.breakdown.ai.score} right={R.breakdown.ai.score} />
           </div>
 
-          {/* 재무 지표 비교 */}
+          {/* 재무/ETF 지표 비교 */}
           <div className="bg-gray-900 rounded-xl p-4">
-            <h2 className="text-sm font-semibold text-gray-400 mb-3 text-center">재무 지표 비교</h2>
-            {['PER', 'PBR', 'ROE', '부채비율', '매출성장률'].map((name) => {
-              const lInd = L.breakdown.fundamental.indicators.find((i) => i.name === name)
-              const rInd = R.breakdown.fundamental.indicators.find((i) => i.name === name)
-              const higherIsBetter = !['PER', 'PBR', '부채비율'].includes(name)
-              return (
-                <CompareRow
-                  key={name}
-                  label={name}
-                  left={lInd?.value ?? null}
-                  right={rInd?.value ?? null}
-                  higherIsBetter={higherIsBetter}
-                />
-              )
-            })}
+            <h2 className="text-sm font-semibold text-gray-400 mb-3 text-center">지표 비교</h2>
+            {(() => {
+              const allNames = Array.from(new Set([
+                ...L.breakdown.fundamental.indicators.map((i) => i.name),
+                ...R.breakdown.fundamental.indicators.map((i) => i.name),
+              ]))
+              const lowerIsBetter = new Set(['PER', 'PBR', '부채비율', '운용보수'])
+              const leftMarket = L.market
+              const rightMarket = R.market
+              return allNames.map((name) => {
+                const lInd = L.breakdown.fundamental.indicators.find((i) => i.name === name)
+                const rInd = R.breakdown.fundamental.indicators.find((i) => i.name === name)
+                const isAum = name === 'AUM(운용규모)'
+                return (
+                  <CompareRow
+                    key={name}
+                    label={name}
+                    left={lInd?.value ?? null}
+                    right={rInd?.value ?? null}
+                    higherIsBetter={!lowerIsBetter.has(name)}
+                    format={isAum
+                      ? (v: number) => formatMarketCap(v, lInd != null ? leftMarket : rightMarket)
+                      : undefined}
+                  />
+                )
+              })
+            })()}
           </div>
 
           {/* AI 분석 비교 */}

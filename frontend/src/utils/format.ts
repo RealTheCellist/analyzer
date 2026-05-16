@@ -1,14 +1,14 @@
 import { Market } from '../types'
 
 export function formatPrice(price: number, market: Market): string {
-  if (!price || price <= 0) return '-'
+  if (!(price > 0)) return '-'
   return market === 'KR'
     ? `₩${price.toLocaleString('ko-KR')}`
     : `$${price.toFixed(2)}`
 }
 
 export function formatMarketCap(cap: number, market: Market): string {
-  if (!cap || cap <= 0) return '-'
+  if (!(cap > 0)) return '-'
   if (market === 'KR') {
     const jo = cap / 1e12
     if (jo >= 1) return `${jo.toFixed(1)}조`

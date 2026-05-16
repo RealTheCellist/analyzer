@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Market, SearchResult } from '../types'
+import { SearchResult } from '../types'
 import { searchStocks } from '../api/stockApi'
 import { formatPrice } from '../utils/format'
 import SearchBar from '../components/SearchBar'
@@ -40,19 +40,17 @@ function saveRecent(item: SearchResult) {
 export default function Home() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchMarket, setSearchMarket] = useState<Market>('KR')
   const [recent, setRecent] = useState<SearchResult[]>(getRecent)
 
   const { data: results, isFetching, isError: isSearchError } = useQuery({
-    queryKey: ['search', searchQuery, searchMarket],
-    queryFn: () => searchStocks(searchQuery, searchMarket),
+    queryKey: ['search', searchQuery],
+    queryFn: () => searchStocks(searchQuery, 'ALL'),
     enabled: searchQuery.length > 0,
     staleTime: 30 * 1000,
   })
 
-  const handleSearch = (q: string, m: Market) => {
+  const handleSearch = (q: string) => {
     setSearchQuery(q)
-    setSearchMarket(m)
   }
 
   const handleSelect = (item: SearchResult) => {

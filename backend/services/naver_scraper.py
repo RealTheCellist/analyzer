@@ -35,10 +35,14 @@ def fetch_kr_fundamentals(ticker: str) -> dict:
             timeout=8,
             verify=True,
         )
+        resp.raise_for_status()
         # 네이버 금융은 EUC-KR 또는 CP949
         html = resp.content.decode("cp949", errors="ignore")
     except requests.exceptions.SSLError as e:
         logger.warning("네이버 금융 SSL 오류 %s: %s", ticker, e)
+        return result
+    except requests.exceptions.HTTPError as e:
+        logger.warning("네이버 금융 HTTP 오류 %s: %s", ticker, e)
         return result
     except Exception as e:
         logger.warning("네이버 금융 요청 실패 %s: %s", ticker, e)
@@ -50,26 +54,26 @@ def fetch_kr_fundamentals(ticker: str) -> dict:
         if m:
             result[field] = _parse_float(m.group(1))
 
-    # ROE — cop_anal13 섹션
-    roe_m = re.search(
-        r'cop_anal13[^>]*>.*?<td[^>]*>\s*([\d.\-]+)', html, re.DOTALL
-    )
-    if roe_m:
-        result["roe"] = _parse_float(roe_m.group(1))
+    # ROE — cop_anal13 섹션만 먼저 잘라낸 뒤 첫 번째 td 탐색
+    section_m = re.search(r'cop_anal13[^>]*>(.*?)</tr>', html, re.DOTALL)
+    if section_m:
+        roe_m = re.search(r'<td[^>]*>\s*([\d.\-]+)', section_m.group(1))
+        if roe_m:
+            result["roe"] = _parse_float(roe_m.group(1))
 
-    # 부채비율 — cop_anal15 섹션
-    debt_m = re.search(
-        r'cop_anal15[^>]*>.*?<td[^>]*>\s*([\d.\-]+)', html, re.DOTALL
-    )
-    if debt_m:
-        result["debt_ratio"] = _parse_float(debt_m.group(1))
+    # 부채비율 — cop_anal15 섹션만 먼저 잘라낸 뒤 첫 번째 td 탐색
+    section_m = re.search(r'cop_anal15[^>]*>(.*?)</tr>', html, re.DOTALL)
+    if section_m:
+        debt_m = re.search(r'<td[^>]*>\s*([\d.\-]+)', section_m.group(1))
+        if debt_m:
+            result["debt_ratio"] = _parse_float(debt_m.group(1))
 
-    # 매출성장률 — 매출액증가율 텍스트 근방
-    rev_m = re.search(
-        r'cop_anal(?:9|10)[^>]*>.*?<td[^>]*>\s*([\d.\-]+)', html, re.DOTALL
-    )
-    if rev_m:
-        result["revenue_growth"] = _parse_float(rev_m.group(1))
+    # 매출성장률 — cop_anal9 또는 cop_anal10 섹션만 먼저 잘라낸 뒤 첫 번째 td 탐색
+    section_m = re.search(r'cop_anal(?:9|10)[^>]*>(.*?)</tr>', html, re.DOTALL)
+    if section_m:
+        rev_m = re.search(r'<td[^>]*>\s*([\d.\-]+)', section_m.group(1))
+        if rev_m:
+            result["revenue_growth"] = _parse_float(rev_m.group(1))
 
     return result
 

@@ -70,14 +70,16 @@ def calculate_technical_score(history_df: pd.DataFrame) -> dict:
                 if macd_val is None or sig_val is None:
                     indicators.append({"name": "MACD", "value": None, "signal": "NEUTRAL", "score": 0.0})
                 else:
-                    # 5일 이내 골든크로스 여부: prev=[-2]봉, curr=최신봉(iloc[-1])
-                    recent = macd_df[[macd_col[0], signal_col[0]]].iloc[-6:-1]
+                    # 골든크로스: 직전봉 histogram < 0, 현재봉 histogram > 0
                     crossed_recently = False
-                    if len(recent) >= 2:
-                        prev_diff = _safe_float(recent[macd_col[0]].iloc[-2]) or 0
-                        curr_diff = macd_val - sig_val
-                        prev_sig = _safe_float(recent[signal_col[0]].iloc[-2]) or 0
-                        crossed_recently = (prev_diff - prev_sig < 0 and curr_diff > 0)
+                    if len(macd_df) >= 2:
+                        prev_macd = _safe_float(macd_df[macd_col[0]].iloc[-2])
+                        prev_sig_val = _safe_float(macd_df[signal_col[0]].iloc[-2])
+                        if prev_macd is not None and prev_sig_val is not None:
+                            crossed_recently = (
+                                prev_macd - prev_sig_val < 0
+                                and macd_val - sig_val > 0
+                            )
 
                     if macd_val > sig_val:
                         macd_score = 5.0 + (2.0 if crossed_recently else 0.0)

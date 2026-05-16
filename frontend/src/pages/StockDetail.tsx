@@ -24,6 +24,24 @@ function SignalBadge({ signal }: { signal: string }) {
 
 const VALID_MARKETS = new Set<string>(['KR', 'US'])
 
+function _formatIndicatorValue(name: string, value: number, market?: string): string {
+  if (name === 'AUM(운용규모)') {
+    if (market === 'KR') {
+      if (value >= 1_000_000_000_000) return `${(value / 1_000_000_000_000).toFixed(1)}조`
+      if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(0)}억`
+      return `${value.toFixed(0)}원`
+    }
+    if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(1)}T`
+    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(0)}M`
+    return `$${value.toFixed(0)}`
+  }
+  if (name === '운용보수' || name === '분배율(배당)' || name === '3년수익률') {
+    return `${value.toFixed(2)}%`
+  }
+  return value.toFixed(2)
+}
+
 export default function StockDetail() {
   const { market, ticker } = useParams<{ market: string; ticker: string }>()
   const navigate = useNavigate()
@@ -97,6 +115,9 @@ export default function StockDetail() {
             {data.name}
             <span className="ml-2 text-gray-500 text-lg font-normal">({data.ticker})</span>
             <span className="ml-2 text-sm bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{data.market}</span>
+            {data.quote_type === 'ETF' && (
+              <span className="ml-2 text-sm bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded">ETF</span>
+            )}
           </h1>
           <p className="text-gray-400 text-sm mt-1">
             현재가: <span className="text-white font-mono">{formatPrice(data.current_price, data.market)}</span>
@@ -166,15 +187,17 @@ export default function StockDetail() {
         </div>
       )}
 
-      {/* 재무 지표 */}
+      {/* 재무/ETF 지표 */}
       <div className="bg-gray-900 rounded-xl p-4">
-        <h2 className="text-sm font-semibold text-gray-400 mb-3">재무 지표 상세</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <h2 className="text-sm font-semibold text-gray-400 mb-3">
+          {data.quote_type === 'ETF' ? 'ETF 지표 상세' : '재무 지표 상세'}
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {breakdown.fundamental.indicators.map((ind) => (
             <div key={ind.name} className={`bg-gray-800 rounded-lg p-3 border ${ind.pass ? 'border-green-500/20' : 'border-gray-700'}`}>
               <p className="text-xs text-gray-500 mb-1">{ind.name}</p>
               <p className="text-white font-mono font-semibold text-sm">
-                {ind.value != null ? ind.value.toFixed(2) : '-'}
+                {ind.value != null ? _formatIndicatorValue(ind.name, ind.value, data.market) : '-'}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">{ind.benchmark}</p>
             </div>

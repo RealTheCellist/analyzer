@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { SearchResult, AnalysisResult, Market } from '../types'
+import { SearchResult, AnalysisResult, Market, SearchMarket } from '../types'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -13,7 +13,7 @@ api.interceptors.response.use(
   }
 )
 
-export const searchStocks = async (query: string, market: Market): Promise<SearchResult[]> => {
+export const searchStocks = async (query: string, market: SearchMarket): Promise<SearchResult[]> => {
   const { data } = await api.get('/stocks/search', { params: { q: query, market } })
   return data.results
 }

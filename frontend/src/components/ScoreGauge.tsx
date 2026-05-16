@@ -9,6 +9,7 @@ interface Props {
 
 export default function ScoreGauge({ score, verdict }: Props) {
   const colorMap: Record<string, string> = {
+    STRONG_BUY: '#10b981',
     QUALIFIED: '#22c55e',
     WATCHLIST: '#eab308',
     DISQUALIFIED: '#ef4444',
@@ -33,14 +34,22 @@ export default function ScoreGauge({ score, verdict }: Props) {
       </div>
       <span
         className={`text-sm font-semibold px-3 py-1 rounded-full ${
-          verdict === 'QUALIFIED'
+          verdict === 'STRONG_BUY'
+            ? 'bg-emerald-500/20 text-emerald-400'
+            : verdict === 'QUALIFIED'
             ? 'bg-green-500/20 text-green-400'
             : verdict === 'WATCHLIST'
             ? 'bg-yellow-500/20 text-yellow-400'
             : 'bg-red-500/20 text-red-400'
         }`}
       >
-        {verdict === 'QUALIFIED' ? '투자 적격' : verdict === 'WATCHLIST' ? '관망' : '투자 부적격'}
+        {verdict === 'STRONG_BUY'
+          ? '강력매수'
+          : verdict === 'QUALIFIED'
+          ? '투자 적격'
+          : verdict === 'WATCHLIST'
+          ? '관망'
+          : '투자 부적격'}
       </span>
     </div>
   )

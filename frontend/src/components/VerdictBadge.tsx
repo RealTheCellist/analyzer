@@ -16,7 +16,7 @@ export default function VerdictBadge({ verdict }: Props) {
     },
     WATCHLIST: {
       className: 'bg-blue-500/20 text-blue-400 border border-blue-500/40',
-      label: '◐ 분할매수',
+      label: '◐ 관망',
     },
     DISQUALIFIED: {
       className: 'bg-gray-700 text-gray-400 border border-gray-600',

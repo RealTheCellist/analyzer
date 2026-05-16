@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 
 from services.data_fetcher import get_stock_data
 from services.fundamental import calculate_fundamental_score
+from services.etf_scorer import calculate_etf_score
 from services.technical import calculate_technical_score
 from services.news_service import collect_news_and_score
 from services.ai_judge import get_ai_judgment
@@ -75,8 +76,11 @@ async def run_analysis(req: AnalysisRequest):
         logger.exception("종목 데이터 조회 실패: %s %s", ticker, market)
         raise HTTPException(status_code=404, detail=f"종목 데이터 조회 실패: {e}")
 
+    is_etf = stock_data.get("quote_type") == "ETF"
+    score_fn = calculate_etf_score if is_etf else calculate_fundamental_score
+
     fundamental, technical, news = await asyncio.gather(
-        asyncio.to_thread(calculate_fundamental_score, stock_data),
+        asyncio.to_thread(score_fn, stock_data),
         asyncio.to_thread(calculate_technical_score, stock_data.get("history")),
         asyncio.to_thread(collect_news_and_score, ticker, stock_data["name"], market),
     )
@@ -108,6 +112,7 @@ async def run_analysis(req: AnalysisRequest):
         "ticker": stock_data["ticker"],
         "name": stock_data["name"],
         "market": stock_data["market"],
+        "quote_type": stock_data.get("quote_type", "EQUITY"),
         "current_price": stock_data["current_price"],
         "market_cap": stock_data["market_cap"],
         "analyzed_at": datetime.now(timezone.utc).isoformat(),

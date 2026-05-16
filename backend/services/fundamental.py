@@ -221,4 +221,4 @@ def calculate_fundamental_score(stock_data: dict) -> dict:
 
     # 기존 최대 20점 → 30점으로 스케일업
     scaled = round(min(total * 1.5, 30.0), 2)
-    return {"score": scaled, "indicators": indicators, "sector_kind": kind}
+    return {"score": scaled, "indicators": indicators}
